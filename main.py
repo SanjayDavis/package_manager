@@ -9,6 +9,7 @@ import subprocess
 # global variables 
 base_url = 'https://deb.debian.org/debian/'
 repo_website = base_url + 'dists/stable/main/binary-amd64/Packages.gz'
+download_path = 'Downloaded_packages'
 
 
 def get_package():
@@ -38,6 +39,8 @@ def store_info(file_content, to_json, json_file="packages.json"):
             'package_name': '',
             'version': '',
             'description': '',
+            'size': '',
+            'file_location': '',
             'md5-hash': '',
             'sha256': ''
         }
@@ -53,6 +56,10 @@ def store_info(file_content, to_json, json_file="packages.json"):
                 info['md5-hash'] = line.split(":", 1)[1].strip()
             elif line.startswith("SHA256:"):
                 info['sha256'] = line.split(":", 1)[1].strip()
+            elif line.startswith("Filename:"):
+                info['file_location'] = line.split(":", 1)[1].strip()
+            elif line.startswith("Installed-Size:"):
+                info['size'] = line.split(":", 1)[1].strip()
 
         if info['package_name']:
             packages.append(info)
@@ -62,10 +69,13 @@ def store_info(file_content, to_json, json_file="packages.json"):
     if to_json:
         with open(json_file, "w") as f:
             json.dump(packages, f, indent=4)
+    
+    os.remove('Packages.gz')
 
     return df 
 
 def check_if_installed(dataframe, user_packages):
+    available_packages = []
     for i in user_packages:
         try:
             subprocess.run(
@@ -78,12 +88,25 @@ def check_if_installed(dataframe, user_packages):
 
         except subprocess.CalledProcessError:
             if i in dataframe['package_name'].values:
-                print(f' Package {i} is available in the repo and can be installed.')
+                row = dataframe[dataframe['package_name'] == i].iloc[0].to_dict()
+                available_packages.append(row)
             else:
                 print(f' Package {i} cannot be found in the repo database.')
 
+    return available_packages
+
+def download_packages(available_packages):
+    if not os.path.exists(download_path):
+        os.mkdir(download_path)
+
+    for i in available_packages:
+        package_url = base_url + i['file_location']
+        r = requests.get(package_url)
+        file_name = os.path.join (download_path, os.path.basename(i['file_location']))
 
 
+        with open(file_name,'wb') as f:
+            f.write(r.content)
 
 def main():
     n = len(sys.argv)
@@ -95,12 +118,13 @@ def main():
         sys.exit(1)
 
     user_packages = sys.argv[1:]
-    print(user_packages)
-    
     get_package()
     file_content = parse_package()
-    package_frame = store_info(file_content, to_json=False)
-    check_if_installed(package_frame,user_packages)
+    package_frame = store_info(file_content, to_json=False) # to store json or not is the boolean
+    available_packages = check_if_installed(package_frame,user_packages)
+    download_packages(available_packages)
+
+
 
 
 
