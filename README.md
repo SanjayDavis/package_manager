@@ -553,20 +553,4 @@ This project is licensed under the MIT License.
 For support, open an issue on GitHub.
 
 ---
-
-##  Roadmap
-
-### Version 1.1
-- [ ] Package conflict resolution
-- [ ] Rollback functionality
-- [ ] Docker containerization
-- [ ] API rate limiting per user
-
-### Version 2.0
-- [ ] Multi-distro support (Debian, Fedora)
-- [ ] Web-based package installation
-- [ ] Analytics dashboard
-- [ ] Mobile app
-
----
 *Last Updated: October 16, 2025*
