@@ -308,6 +308,8 @@ python3 restore_db.py backups/adminpy_backup_20251016_180000.sql.gz
 
 ## Project Structure
 
+
+```
 package-manager/
 ├── backend/ # Node.js Express backend
 │ ├── index.js # Main server file
@@ -343,7 +345,7 @@ package-manager/
 ├── start.bat # Windows startup script
 ├── .env # Root env (CLI credentials)
 └── README.md 
-
+```
 ---
 
 ## API Documentation
