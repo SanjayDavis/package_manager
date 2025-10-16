@@ -123,6 +123,8 @@ cd package-manager
 ### 2. Database Setup
 
 Create MySQL database and user:
+```bash
+
 CREATE DATABASE adminpy;
 CREATE USER 'admin'@'localhost' IDENTIFIED BY 'your_secure_password';
 GRANT ALL PRIVILEGES ON adminpy.* TO 'admin'@'localhost';
@@ -173,7 +175,7 @@ INDEX idx_user_id (user_id),
 INDEX idx_package_name (package_name),
 INDEX idx_timestamp (download_timestamp)
 );
-
+```
 
 ### 3. Frontend and Backend Setup
   ```bash
