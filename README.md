@@ -95,7 +95,7 @@ mysql --version
 Python 3.8+ (for scripts)
 python --version
 
-text
+
 
 #### Ubuntu/WSL (for CLI tool):
 Python 3.8+
@@ -110,7 +110,6 @@ mysql --version
 dpkg (pre-installed)
 dpkg --version
 
-text
 
 ---
 
@@ -120,7 +119,6 @@ text
 git clone https://github.com/yourusername/package-manager.git
 cd package-manager
 
-text
 
 ### 2. Database Setup
 
@@ -130,7 +128,6 @@ CREATE USER 'admin'@'localhost' IDENTIFIED BY 'your_secure_password';
 GRANT ALL PRIVILEGES ON adminpy.* TO 'admin'@'localhost';
 FLUSH PRIVILEGES;
 
-text
 
 Create tables:
 USE adminpy;
@@ -177,87 +174,40 @@ INDEX idx_package_name (package_name),
 INDEX idx_timestamp (download_timestamp)
 );
 
-text
 
-### 3. Backend Setup
+### 3. Frontend and Backend Setup
+  ```bash
+start.bat 
+  ```
+for Windows
 
-cd backend
-
-Install dependencies
-npm install
-
-Create .env file
-cat > .env << EOF
-MYSQL_HOST=localhost
-MYSQL_USER=admin
-MYSQL_PASSWORD=your_secure_password
-MYSQL_DB=adminpy
-JWT_SECRET=your_random_secret_key_here
-PORT=8000
-EOF
-
-Start backend
-npm start
-
-text
-
-### 4. Frontend Setup
-
-cd frontend
-
-Install dependencies
-npm install
-
-Start frontend
-npm start
-
-text
-
-### 5. CLI Tool Setup
-
-cd .. # Back to root directory
+### 4. CLI Tool Setup
 
 Install Python dependencies
+  ```bash
 pip3 install -r requirements.txt
-
-Test CLI
 python3 test.py --help
-
-text
-
+```
 ---
 
-## Configuration
-
-### Environment Variables
-
-#### Backend (.env)
-MYSQL_HOST=localhost # MySQL server host
-MYSQL_USER=admin # Database username
-MYSQL_PASSWORD=your_password # Database password
-MYSQL_DB=adminpy # Database name
-JWT_SECRET=random_secret_key # JWT signing key (generate secure random)
-PORT=8000 # Backend port
-
-text
 
 #### CLI Tool (.env) - Auto-generated
 PKG_MANAGER_USER=username # CLI user credentials
 PKG_MANAGER_PASS=password # Auto-saved on login
 
-text
 
 ### Ubuntu Repository Configuration
 
 By default, the system uses Ubuntu 24.04 (Noble) repositories. To change:
 
 Edit `backend/index.js`:
+```bash
 const repos = [
 'http://archive.ubuntu.com/ubuntu/dists/noble/main/binary-amd64/Packages.gz',
 'http://archive.ubuntu.com/ubuntu/dists/noble/universe/binary-amd64/Packages.gz'
 ];
+```
 
-text
 
 Supported Ubuntu versions:
 - `noble` - 24.04 LTS
@@ -272,73 +222,55 @@ Supported Ubuntu versions:
 
 #### Windows (Quick Start)
 Start everything
+```bash
 start.bat
-
-text
-
-#### Linux/WSL
-Make executable
-chmod +x start.sh
-
-Start all services
-./start.sh
-
-text
-
-#### Manual Start
-Terminal 1: Backend
-cd backend
-npm start
-
-Terminal 2: Frontend
-cd frontend
-npm start
-
-Terminal 3: CLI (WSL/Ubuntu)
-python3 test.py search gcc
-
-text
+```
 
 ### Admin Dashboard
 
 1. **Access:** Open browser to `http://localhost:3000`
 
 2. **First Login:** Create admin user via backend:
+```bash
 curl -X POST http://localhost:8000/register
 -H "Content-Type: application/json"
 -d '{"username":"admin","password":"yourpassword","role":"admin"}'
+```
 
-text
 
-3. **Features:**
+4. **Features:**
    - **Packages Tab:** Search and browse all packages
    - **Dependencies Tab:** View dependency relationships
    - **Downloads Tab:** Monitor user installations
-   - **Update Packages:** Sync with Ubuntu repositories (takes 3-5 minutes)
+   - **Update Packages:** Sync with Ubuntu repositories (takes 1-2 minutes)
 
 ### CLI Tool
 
 #### First Time Setup
 Register user
+```bash
 python3 test.py register johndoe mypassword
-
+```
 Credentials auto-saved to .env
-text
+
 
 #### Search Packages
+```bash
 python3 test.py search gcc
 python3 test.py search python3
-
-text
+```
 
 #### View Package Info
+```bash
 python3 test.py info nmap
-
+```
 Shows: version, architecture, dependencies
-text
+
 
 #### Install Package
+```bash
 python3 test.py install nmap
+```
 
 Automatically:
 1. Analyzes dependencies
@@ -351,33 +283,24 @@ text
 #### Logout
 python3 test.py logout
 
-text
 
 ### Database Management
 
-#### Backup Database
-Simple backup (compressed)
-python3 save_db.py
-
-Backup without compression
-python3 save_db.py --no-compress
-
-List backups
-python3 save_db.py --list
-
-text
-
 #### Restore Database
 Interactive restore
+```bash
 python3 restore_db.py
+```
 
 Restore latest backup
+```bash
 python3 restore_db.py --latest
+```
 
 Restore specific backup
+```bash
 python3 restore_db.py backups/adminpy_backup_20251016_180000.sql.gz
-
-text
+```
 
 ---
 
@@ -387,7 +310,7 @@ package-manager/
 ├── backend/ # Node.js Express backend
 │ ├── index.js # Main server file
 │ ├── package.json # Dependencies
-│ ├── .env # Configuration (create this)
+│ ├── .env # Configuration ( should be created for mysql database )
 │ └── node_modules/ # npm packages
 │
 ├── frontend/ # React admin dashboard
@@ -407,22 +330,17 @@ package-manager/
 │ ├── package.json
 │ └── node_modules/
 │
-├── backups/ # Database backups (auto-created)
+├── backups/ # Database backups (automatically created by the python code)
 │ └── adminpy_backup_*.sql.gz
 │
-├── debian_packages/ # Downloaded .deb files (temp)
+├── debian_packages/ # Downloaded .deb files (temporary for te)
 │
-├── test.py # CLI package manager tool
-├── save_db.py # Database backup script
 ├── restore_db.py # Database restore script
+├── save_db.py # Database saving script
 ├── requirements.txt # Python dependencies
 ├── start.bat # Windows startup script
-├── start.sh # Linux startup script
-├── stop.bat # Windows stop script
 ├── .env # Root env (CLI credentials)
-└── README.md # This file
-
-text
+└── README.md 
 
 ---
 
@@ -431,53 +349,66 @@ text
 ### Authentication Endpoints
 
 #### POST `/register`
-Register new user
+
+1. Register new user
+```bash
+
 Request:
 {
 "username": "johndoe",
 "password": "securepass123",
 "role": "user"
 }
+```
 
 Response:
+```bash
+
 {
 "message": "User registered"
 }
-
-text
+```
 
 #### POST `/login`
 Admin login (frontend only)
+```
 Request:
 {
 "username": "admin",
 "password": "adminpass"
 }
+```
 
 Response:
+```
 {
 "token": "eyJhbGciOiJIUzI1...",
 "role": "admin"
 }
+```
 
-text
 
 #### POST `/login-cli`
+
 CLI login (all users)
 Request:
+```bash
+
 {
 "username": "johndoe",
 "password": "userpass"
 }
+```
 
 Response:
+```bash
 {
 "token": "eyJhbGciOiJIUzI1...",
 "role": "user",
 "username": "johndoe"
 }
+```
 
-text
 
 ### Data Endpoints (Require Authentication)
 
@@ -493,14 +424,15 @@ Headers:
 Authorization: Bearer <token>
 
 Response:
+```bash
 {
 "data": [...],
 "total": 100000,
 "page": 1,
 "totalPages": 1000
 }
+```
 
-text
 
 #### GET `/api/dependencies`
 List package dependencies
@@ -517,12 +449,11 @@ Headers:
 Authorization: Bearer <admin_token>
 
 Response:
+```bash
 {
 "status": "Updated 99953 packages from Ubuntu 24.04 (Noble)"
 }
-
-text
-
+```
 ---
 
 ## Troubleshooting
@@ -579,33 +510,6 @@ sudo apt autoremove
 
 ---
 
-##  Security
-
-### Best Practices
-
-1. **Change Default Credentials**
-Generate strong JWT secret:
-node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
-
-
-2. **Firewall Configuration**
-Only allow local connections
-sudo ufw allow from 127.0.0.1 to any port 8000
-
-text
-
-3. **HTTPS in Production**
-- Use SSL certificates
-- Enable CORS only for trusted origins
-- Implement rate limiting
-
-4. **Database Security**
-- Use strong passwords
-- Regular backups
-- Limit user privileges
-
----
-
 ## Performance
 
 ### Database Optimization
@@ -613,7 +517,6 @@ text
 CREATE INDEX idx_package_name ON packages(name);
 CREATE INDEX idx_dependency_name ON dependencies(dependency_name);
 
-text
 
 ### Stats
 - **Total Ubuntu Packages:** ~100,000
@@ -638,15 +541,6 @@ Contributions are welcome! Please:
 ##  License
 
 This project is licensed under the MIT License.
-
----
-
-##  Acknowledgments
-
-- Ubuntu Package Management team
-- React.js community
-- Express.js documentation
-- MySQL team
 
 ---
 
