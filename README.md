@@ -21,7 +21,7 @@ A full-stack package management system with a beautiful dark-themed admin dashbo
 - **Loading States** - Smooth transitions between views
 - **Admin Authentication** - Secure JWT-based login
 
-### 🖥️ CLI Tool (Python)
+###  CLI Tool (Python)
 - **Auto-login** - Stores credentials securely in `.env`
 - **Smart Dependency Resolution** - Recursively installs all dependencies
 - **Version Compatibility** - Checks version constraints automatically
