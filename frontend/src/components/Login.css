@@ -93,7 +93,7 @@
   font-size: 28px;
   font-weight: 700;
   margin: 0 0 8px 0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);  /* Changed from blue-purple to cyan-blue */
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -205,6 +205,17 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+.login-header h1 {
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);  /* Changed from blue-purple to cyan-blue */
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 
 .login-footer {
   margin-top: 32px;
