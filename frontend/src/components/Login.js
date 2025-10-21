@@ -39,6 +39,9 @@ function Login({ onLogin }) {
         <div className="gradient-orb orb-1"></div>
         <div className="gradient-orb orb-2"></div>
         <div className="gradient-orb orb-3"></div>
+        <div className="gradient-orb orb-4"></div>
+        <div className="gradient-orb orb-5"></div>
+        <div className="gradient-orb orb-6"></div>
       </div>
 
       <div className="login-card">
