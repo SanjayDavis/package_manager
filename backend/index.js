@@ -147,6 +147,140 @@ app.get('/api/packages', authenticateToken, async (req, res) => {
   }
 });
 
+// Update Package API - Admin only
+app.put('/api/packages/:id', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Access denied: Admin only' });
+  }
+
+  const packageId = req.params.id;
+  const { name, version, architecture, filename } = req.body;
+
+  // Validate input
+  if (!name || !version || !architecture || !filename) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+
+  try {
+    // Check if package exists and verify name hasn't changed
+    const [existing] = await pool.query('SELECT id, name FROM packages WHERE id = ?', [packageId]);
+    if (existing.length === 0) {
+      return res.status(404).json({ error: 'Package not found' });
+    }
+
+    // Prevent changing package name
+    if (existing[0].name !== name) {
+      return res.status(400).json({ error: 'Package name cannot be changed' });
+    }
+
+    // Update package (only version, architecture, filename)
+    await pool.query(
+      'UPDATE packages SET version = ?, architecture = ?, filename = ? WHERE id = ?',
+      [version, architecture, filename, packageId]
+    );
+
+    res.json({ 
+      message: 'Package updated successfully',
+      package: { id: packageId, name, version, architecture, filename }
+    });
+  } catch (error) {
+    console.error('Error updating package:', error);
+    if (error.code === 'ER_DUP_ENTRY') {
+      res.status(409).json({ error: 'A package with this name and version already exists' });
+    } else {
+      res.status(500).json({ error: 'Server error' });
+    }
+  }
+});
+
+// Add Package API - Admin only
+app.post('/api/packages', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Access denied: Admin only' });
+  }
+
+  const { name, version, architecture, filename, dependencies } = req.body;
+
+  // Validate input
+  if (!name || !version || !architecture || !filename) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+
+  const conn = await pool.getConnection();
+  
+  try {
+    await conn.beginTransaction();
+
+    // Insert new package
+    const [result] = await conn.query(
+      'INSERT INTO packages (name, version, architecture, filename) VALUES (?, ?, ?, ?)',
+      [name, version, architecture, filename]
+    );
+
+    const packageId = result.insertId;
+
+    // Insert dependencies if provided
+    if (dependencies && Array.isArray(dependencies) && dependencies.length > 0) {
+      for (const dep of dependencies) {
+        if (dep.name) {
+          await conn.query(
+            'INSERT INTO dependencies (package_id, dependency_name, version_constraint) VALUES (?, ?, ?)',
+            [packageId, dep.name, dep.version_constraint || null]
+          );
+        }
+      }
+    }
+
+    await conn.commit();
+
+    res.status(201).json({ 
+      message: `Package added successfully with ${dependencies?.length || 0} dependencies`,
+      package: { id: packageId, name, version, architecture, filename, dependencies: dependencies || [] }
+    });
+  } catch (error) {
+    await conn.rollback();
+    console.error('Error adding package:', error);
+    if (error.code === 'ER_DUP_ENTRY') {
+      res.status(409).json({ error: 'A package with this name and version already exists' });
+    } else {
+      res.status(500).json({ error: 'Server error' });
+    }
+  } finally {
+    conn.release();
+  }
+});
+
+// Delete Package API - Admin only
+app.delete('/api/packages/:id', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Access denied: Admin only' });
+  }
+
+  const packageId = req.params.id;
+
+  try {
+    // Check if package exists
+    const [existing] = await pool.query('SELECT id, name FROM packages WHERE id = ?', [packageId]);
+    if (existing.length === 0) {
+      return res.status(404).json({ error: 'Package not found' });
+    }
+
+    // Delete dependencies first (foreign key constraint)
+    await pool.query('DELETE FROM dependencies WHERE package_id = ?', [packageId]);
+    
+    // Delete package
+    await pool.query('DELETE FROM packages WHERE id = ?', [packageId]);
+
+    res.json({ 
+      message: 'Package and its dependencies deleted successfully',
+      deletedPackage: existing[0].name
+    });
+  } catch (error) {
+    console.error('Error deleting package:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Dependencies API
 app.get('/api/dependencies', authenticateToken, async (req, res) => {
   const search = req.query.search?.trim() || '';

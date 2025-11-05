@@ -622,3 +622,15 @@ SELECT /*+ INDEX(packages idx_name) */ * FROM packages WHERE name = 'nginx';
 ---
 
 **Last Updated:** October 21, 2025
+
+
+
+
+
+DDL - all there
+DML - all there
+DQL - all there with subqueries
+DCL - Grant all permissions for ADMIN , and removed insert and update permissions for USERS
+
+
+
