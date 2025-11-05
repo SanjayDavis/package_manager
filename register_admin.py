@@ -1,8 +1,4 @@
-#!/usr/bin/env python3
-"""
-Admin Registration Script for Package Manager
-Creates admin users with secure password hashing
-"""
+\
 
 import mysql.connector
 import bcrypt
@@ -11,7 +7,6 @@ import sys
 from dotenv import load_dotenv
 import os
 
-# Load environment variables
 load_dotenv('backend/.env')
 
 MYSQL_HOST = os.getenv('MYSQL_HOST', 'localhost')
@@ -250,7 +245,6 @@ def interactive_menu():
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        # Command line mode
         if sys.argv[1] == '--menu':
             interactive_menu()
         else:
@@ -258,5 +252,4 @@ if __name__ == "__main__":
             print("  python register_admin.py          # Quick registration")
             print("  python register_admin.py --menu   # Interactive menu")
     else:
-        # Quick registration mode
         register_admin()
