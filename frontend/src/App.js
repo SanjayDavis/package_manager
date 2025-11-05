@@ -10,7 +10,6 @@ function App() {
   const [initialLoading, setInitialLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate initial loading
     setTimeout(() => {
       setInitialLoading(false);
     }, 800);

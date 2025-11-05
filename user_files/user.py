@@ -1,14 +1,3 @@
-#!/usr/bin/env python3
-
-"""
-Production-Ready Backend-Integrated Package Manager
-- Smart recursive dependency resolution
-- Ubuntu version compatibility checking
-- System conflict protection (t64 transitions)
-- Progress bars for downloads
-- NO apt-get dependency - pure manual installation
-- Logs everything to backend
-"""
 
 import os
 import requests
@@ -22,7 +11,6 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Set
 from dataclasses import dataclass
 
-# Try to import tqdm for progress bars
 try:
     from tqdm import tqdm
     HAVE_TQDM = True
@@ -30,13 +18,27 @@ except ImportError:
     HAVE_TQDM = False
     print("Install tqdm for progress bars: pip3 install tqdm")
 
-# Backend API Configuration
-BACKEND_URL = "http://172.30.112.1:8000"
+def get_backend_url():
+    """Detect if running in WSL and return appropriate backend URL"""
+    try:
+        with open('/proc/version', 'r') as f:
+            if 'microsoft' in f.read().lower():
+                result = subprocess.run(['ip', 'route', 'show'], capture_output=True, text=True)
+                for line in result.stdout.split('\n'):
+                    if 'default' in line:
+                        wsl_host = line.split()[2]
+                        return f"http://{wsl_host}:8000"
+    except:
+        pass
+    
+    return "http://localhost:8000"
+
+BACKEND_URL = get_backend_url()
+print(f"Backend URL: {BACKEND_URL}")
 ENV_FILE = Path(".env")
 CACHE_DIR = Path.home() / ".cache" / "pkg-manager"
 DOWNLOAD_DIR = Path("debian_packages")
 
-# ANSI Colors
 BLUE = '\033[94m'
 GREEN = '\033[92m'
 RED = '\033[91m'
@@ -44,7 +46,6 @@ YELLOW = '\033[93m'
 BOLD = '\033[1m'
 RESET = '\033[0m'
 
-# System-critical packages
 FORBIDDEN_PACKAGES = {
     'libc6', 'libc-bin', 'libgcc-s1', 'dpkg', 'apt', 'bash',
     'coreutils', 'systemd', 'init', 'base-files', 'ubuntu-minimal'
@@ -64,14 +65,16 @@ class CredentialManager:
     
     @staticmethod
     def save_credentials(username: str, password: str):
+        """Save credentials to .env file"""
         with open(ENV_FILE, 'w') as f:
             f.write(f"PKG_MANAGER_USER={username}\n")
             f.write(f"PKG_MANAGER_PASS={password}\n")
         os.chmod(ENV_FILE, 0o600)
-        print(f"{GREEN}Credentials saved to .env file{RESET}")
+        print(f"{GREEN}Credentials saved securely to .env file{RESET}")
     
     @staticmethod
     def load_credentials() -> tuple:
+        """Load credentials from .env file"""
         if not ENV_FILE.exists():
             return None, None
         
@@ -89,6 +92,7 @@ class CredentialManager:
     
     @staticmethod
     def clear_credentials():
+        """Clear saved credentials"""
         if ENV_FILE.exists():
             ENV_FILE.unlink()
             print(f"{GREEN}Credentials cleared{RESET}")
@@ -123,11 +127,9 @@ class SystemPackageManager:
     @staticmethod
     def parse_version(version_str: str) -> tuple:
         """Parse version string for comparison"""
-        # Remove epoch if present
         if ':' in version_str:
             version_str = version_str.split(':', 1)[1]
         
-        # Split into parts
         parts = re.split(r'[.-]', version_str)
         numeric_parts = []
         
@@ -149,6 +151,7 @@ class BackendClient:
         self.auto_login()
     
     def auto_login(self):
+        """Attempt auto-login using saved credentials"""
         username, password = CredentialManager.load_credentials()
         if username and password:
             try:
@@ -161,31 +164,36 @@ class BackendClient:
                     data = response.json()
                     self.token = data['token']
                     self.username = username
-                    print(f"{GREEN}Auto-login successful as {username}{RESET}")
+                    print(f"{GREEN}Auto-login successful as {username}{RESET}\n")
                     return True
+                else:
+                    CredentialManager.clear_credentials()
+                    print(f"{YELLOW}Saved credentials expired. Please login again.{RESET}\n")
             except:
                 pass
         return False
     
     def register(self, username: str, password: str) -> bool:
+        """Register new user account"""
         try:
             response = requests.post(
                 f"{BACKEND_URL}/register",
                 json={'username': username, 'password': password, 'role': 'user'}
             )
             if response.status_code == 201:
-                print(f"{GREEN}Registration successful!{RESET}")
+                print(f"{GREEN} Registration successful!{RESET}")
                 CredentialManager.save_credentials(username, password)
-                return self.login(username, password)
+                return self.auto_login()
             else:
                 error_msg = response.json().get('error', 'Unknown error')
-                print(f"{RED}Registration failed: {error_msg}{RESET}")
+                print(f"{RED} Registration failed: {error_msg}{RESET}")
                 return False
         except Exception as e:
-            print(f"{RED}Error connecting to backend: {str(e)}{RESET}")
+            print(f"{RED} Error connecting to backend: {str(e)}{RESET}")
             return False
     
     def login(self, username: str, password: str) -> bool:
+        """Login with username and password"""
         try:
             response = requests.post(
                 f"{BACKEND_URL}/login-cli",
@@ -196,18 +204,23 @@ class BackendClient:
                 self.token = data['token']
                 self.username = username
                 CredentialManager.save_credentials(username, password)
-                print(f"{GREEN}Login successful!{RESET}")
+                print(f"{GREEN} Login successful!{RESET}\n")
                 return True
             else:
-                print(f"{RED}Login failed: {response.json().get('error', 'Unknown error')}{RESET}")
+                error = response.json().get('error', 'Invalid credentials')
+                print(f"{RED} Login failed: {error}{RESET}")
                 return False
         except Exception as e:
-            print(f"{RED}Error connecting to backend: {str(e)}{RESET}")
+            print(f"{RED} Error connecting to backend: {str(e)}{RESET}")
             return False
     
     def search_packages(self, query: str) -> List[dict]:
+        """Search for packages"""
         if not self.token:
-            print(f"{RED}Not logged in. Run: python3 test.py register <username> <password>{RESET}")
+            print(f"{RED} Not logged in{RESET}")
+            print(f"{YELLOW}Please register or login first:{RESET}")
+            print(f"  python3 user.py register <username> <password>")
+            print(f"  python3 user.py login <username> <password>\n")
             return []
         
         try:
@@ -351,9 +364,9 @@ class PackageManager:
             print(f"Dependencies ({len(deps)}):")
             for dep_name, version_constraint in deps[:10]:
                 if self._is_installed(dep_name):
-                    print(f"  {GREEN}✓{RESET} {dep_name} {version_constraint or ''}")
+                    print(f"  {GREEN}{RESET} {dep_name} {version_constraint or ''}")
                 else:
-                    print(f"  {RED}✗{RESET} {dep_name} {version_constraint or ''}")
+                    print(f"  {RED}{RESET} {dep_name} {version_constraint or ''}")
             if len(deps) > 10:
                 print(f"  ... and {len(deps) - 10} more")
     
@@ -441,7 +454,20 @@ class PackageManager:
         
         # Install main package
         print(f"\n{BLUE}→ Installing main package: {pkg_name}{RESET}")
-        return self._install_single(pkg_name)
+        result = self._install_single(pkg_name)
+        
+        # Clean up debian_packages folder after installation
+        self._cleanup_downloads()
+        
+        return result
+    
+    def _cleanup_downloads(self):
+        try:
+            if DOWNLOAD_DIR.exists():
+                import shutil
+                shutil.rmtree(DOWNLOAD_DIR)
+        except Exception as e:
+            print(f"\n{YELLOW}Warning: Could not clean up downloads: {str(e)}{RESET}")
     
     def _resolve_dependencies(self, pkg_name: str, visited: Optional[Set[str]] = None) -> List[str]:
         """Recursively resolve all dependencies"""
@@ -484,7 +510,7 @@ class PackageManager:
             # Check if a t64 version is installed
             t64_name = dep_name + 't64'
             if t64_name in self.installed_packages:
-                print(f"  {GREEN}✓ Using system {t64_name} (t64 transition){RESET}")
+                print(f"  {GREEN} Using system {t64_name} (t64 transition){RESET}")
                 return True
             return False
         
@@ -492,7 +518,7 @@ class PackageManager:
         
         # If version constraint is satisfied, skip
         if version_constraint and self._check_version_constraint(installed_version, version_constraint):
-            print(f"  {GREEN}✓ {dep_name} already satisfied ({installed_version}){RESET}")
+            print(f"  {GREEN} {dep_name} already satisfied ({installed_version}){RESET}")
             return True
         
         # Version mismatch warning
@@ -533,7 +559,7 @@ class PackageManager:
         
         # Check for system conflicts
         if self._would_break_system(pkg_name):
-            print(f"  {RED}✗ Cannot install {pkg_name} - would break system packages{RESET}")
+            print(f"  {RED} Cannot install {pkg_name} - would break system packages{RESET}")
             print(f"  {YELLOW}This package conflicts with newer system libraries (t64){RESET}")
             return False
         
@@ -590,27 +616,30 @@ class PackageManager:
             install_duration = time.time() - install_start
             
             if result.returncode == 0:
-                print(f"  {GREEN}✓ Installed successfully in {install_duration:.2f}s{RESET}")
+                print(f"  {GREEN} Installed successfully in {install_duration:.2f}s{RESET}")
                 install_status = "success"
                 self.installed_packages = SystemPackageManager.get_installed_packages()
             else:
-                print(f"  {RED}✗ Installation failed{RESET}")
+                print(f"  {RED} Installation failed{RESET}")
                 if 'breaks' in result.stderr.lower() or 'conflicts' in result.stderr.lower():
                     print(f"  {RED}Package conflicts with existing system packages{RESET}")
                 error_lines = result.stderr.split('\n')[:3]
                 for line in error_lines:
                     if line.strip():
                         print(f"  {YELLOW}{line.strip()}{RESET}")
-            
-            # Clean up
-            if deb_path.exists():
-                os.remove(deb_path)
                 
         except Exception as e:
             download_status = "failed"
             download_duration = time.time() - download_start
             print(f"  {RED}Error: {str(e)}{RESET}")
         finally:
+            # Clean up individual .deb file
+            try:
+                if 'deb_path' in locals() and deb_path.exists():
+                    os.remove(deb_path)
+            except:
+                pass
+            
             # Log to backend
             self.backend.log_download(
                 pkg_name=pkg_name,
@@ -658,29 +687,146 @@ class PackageManager:
         return pkg_name in self.installed_packages
 
 
+def print_help():
+    """Display comprehensive help information"""
+    print(f"""
+{BOLD}{'='*80}{RESET}
+{BOLD}{BLUE}  DEBIAN PACKAGE MANAGER - User Guide{RESET}
+{BOLD}{'='*80}{RESET}
+
+{BOLD}DESCRIPTION:{RESET}
+  A secure, backend-integrated package manager for Debian/Ubuntu systems.
+  Features automatic dependency resolution, progress tracking, and usage logging.
+
+{BOLD}FIRST TIME SETUP:{RESET}
+  {GREEN}1. Register an account:{RESET}
+     python3 user.py register myusername mypassword
+     
+  {GREEN}2. Your credentials are saved securely (hashed){RESET}
+     - Stored in .env file with bcrypt encryption
+     - Auto-login on subsequent runs
+
+{BOLD}AVAILABLE COMMANDS:{RESET}
+
+  {BLUE}register <username> <password>{RESET}
+     Create a new account
+     Example: python3 user.py register john mySecurePass123
+     
+  {BLUE}login <username> <password>{RESET}
+     Login to existing account
+     Example: python3 user.py login john mySecurePass123
+     
+  {BLUE}logout{RESET}
+     Logout and clear saved credentials
+     Example: python3 user.py logout
+     
+  {BLUE}search <query>{RESET}
+     Search for packages by name
+     Example: python3 user.py search firefox
+     Example: python3 user.py search lib
+     
+  {BLUE}info <package_name>{RESET}
+     Show detailed information about a package
+     - Version, architecture, dependencies
+     - Installation status
+     Example: python3 user.py info curl
+     
+  {BLUE}install <package_name>{RESET}
+     Install a package with automatic dependency resolution
+     - Checks for conflicts
+     - Resolves and installs dependencies first
+     - Shows progress bars
+     - Logs to backend
+     Example: python3 user.py install sl
+     Example: python3 user.py install neofetch
+
+{BOLD}IMPORTANT NOTES:{RESET}
+
+  {RED}⚠ You MUST be registered/logged in to use this tool{RESET}
+     - search, info, and install require authentication
+     - Your activity is logged for system administration
+     
+  {YELLOW}⚠ System-critical packages are protected{RESET}
+     - Cannot install: libc6, dpkg, apt, bash, systemd, etc.
+     - Prevents accidental system breakage
+     
+  {YELLOW}⚠ Ubuntu version compatibility{RESET}
+     - Tool warns about version mismatches
+     - Handles t64 library transitions (Ubuntu 24.04)
+
+{BOLD}EXAMPLES:{RESET}
+
+  {GREEN}# First time - register{RESET}
+  python3 user.py register davis myPassword123
+  
+  {GREEN}# Search for a package{RESET}
+  python3 user.py search htop
+  
+  {GREEN}# Get package information{RESET}
+  python3 user.py info htop
+  
+  {GREEN}# Install a package{RESET}
+  python3 user.py install htop
+  
+  {GREEN}# Logout{RESET}
+  python3 user.py logout
+
+{BOLD}SECURITY:{RESET}
+   Passwords are hashed with bcrypt before storage
+   Only hashed passwords sent to backend
+   JWT token authentication
+   Credentials stored in .env with 600 permissions
+
+{BOLD}TROUBLESHOOTING:{RESET}
+  - If auto-login fails, credentials may have expired - login again
+  - If installation fails, check sudo permissions
+  - For dependency conflicts, see package info first
+  - All actions are logged to backend for admin review
+
+{BOLD}{'='*80}{RESET}
+For more help, visit: http://localhost:8000 (admin dashboard)
+{BOLD}{'='*80}{RESET}
+""")
+
+
+def main():
+    import argparse
 def main():
     import argparse
     
-    parser = argparse.ArgumentParser(description="Production Package Manager")
-    parser.add_argument('command', choices=['register', 'login', 'logout', 'install', 'search', 'info'])
+    # Check if no arguments provided
+    if len(sys.argv) == 1:
+        print_help()
+        return
+    
+    # Handle help command
+    if sys.argv[1] in ['help', '--help', '-h']:
+        print_help()
+        return
+    
+    parser = argparse.ArgumentParser(description="Production Package Manager", add_help=False)
+    parser.add_argument('command', choices=['register', 'login', 'logout', 'install', 'search', 'info', 'help'])
     parser.add_argument('arg1', nargs='?', help='username or package name')
     parser.add_argument('arg2', nargs='?', help='password')
     
     args = parser.parse_args()
     
-    if len(sys.argv) == 1:
-        parser.print_help()
-        print(f"\n{YELLOW}First time? Run: python3 test.py register <username> <password>{RESET}")
-        print(f"{YELLOW}Commands:{RESET}")
-        print(f"  register <username> <password>  - Create new account")
-        print(f"  login <username> <password>     - Login")
-        print(f"  search <query>                  - Search packages")
-        print(f"  info <package>                  - Show package info")
-        print(f"  install <package>               - Install package with dependencies")
-        print(f"  logout                          - Logout")
+    if args.command == 'help':
+        print_help()
         return
     
     mgr = PackageManager()
+    
+    # Check if user is logged in for commands that require it
+    requires_auth = ['search', 'info', 'install']
+    if args.command in requires_auth and not mgr.backend.token:
+        print(f"{RED} Authentication required{RESET}")
+        print(f"{YELLOW}You must be registered and logged in to use this command.{RESET}\n")
+        print(f"First time? Register with:")
+        print(f"  python3 user.py register <username> <password>\n")
+        print(f"Already have an account? Login with:")
+        print(f"  python3 user.py login <username> <password>\n")
+        return
     
     try:
         if args.command == 'register':
@@ -703,23 +849,26 @@ def main():
         
         elif args.command == 'logout':
             CredentialManager.clear_credentials()
-            print(f"{GREEN}Logged out successfully{RESET}")
+            print(f"{GREEN} Logged out successfully{RESET}")
         
         elif args.command == 'install':
             if not args.arg1:
-                print("Package name required")
+                print(f"{RED}Package name required{RESET}")
+                print("Usage: python3 user.py install <package_name>")
                 return
             mgr.install(args.arg1)
         
         elif args.command == 'search':
             if not args.arg1:
-                print("Search query required")
+                print(f"{RED}Search query required{RESET}")
+                print("Usage: python3 user.py search <query>")
                 return
             mgr.search(args.arg1)
         
         elif args.command == 'info':
             if not args.arg1:
-                print("Package name required")
+                print(f"{RED}Package name required{RESET}")
+                print("Usage: python3 user.py info <package_name>")
                 return
             mgr.info(args.arg1)
     

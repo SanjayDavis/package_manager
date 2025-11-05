@@ -20,7 +20,6 @@ const pool = mysql.createPool({
   database: process.env.MYSQL_DB,
 });
 
-// Register endpoint
 app.post('/register', async (req, res) => {
   const { username, password, role = 'user' } = req.body;
   try {
@@ -39,7 +38,6 @@ app.post('/register', async (req, res) => {
   }
 });
 
-// Login endpoint - only allow admins to login via frontend
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
   try {
@@ -61,7 +59,6 @@ app.post('/login', async (req, res) => {
   }
 });
 
-// CLI Login endpoint - allows regular users
 app.post('/login-cli', async (req, res) => {
   const { username, password } = req.body;
   try {
@@ -76,11 +73,11 @@ app.post('/login-cli', async (req, res) => {
     const token = jwt.sign({ userId: user.id, role: user.role }, SECRET_KEY, { expiresIn: '30d' });
     res.json({ token, role: user.role, username: username });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// JWT Authentication middleware
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -92,7 +89,6 @@ function authenticateToken(req, res, next) {
   });
 }
 
-// Packages API
 app.get('/api/packages', authenticateToken, async (req, res) => {
   const search = req.query.search?.trim() || '';
   const page = parseInt(req.query.page) || 1;
@@ -147,7 +143,6 @@ app.get('/api/packages', authenticateToken, async (req, res) => {
   }
 });
 
-// Update Package API - Admin only
 app.put('/api/packages/:id', authenticateToken, async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Access denied: Admin only' });
@@ -156,7 +151,6 @@ app.put('/api/packages/:id', authenticateToken, async (req, res) => {
   const packageId = req.params.id;
   const { name, version, architecture, filename } = req.body;
 
-  // Validate input
   if (!name || !version || !architecture || !filename) {
     return res.status(400).json({ error: 'All fields are required' });
   }
@@ -168,12 +162,10 @@ app.put('/api/packages/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Package not found' });
     }
 
-    // Prevent changing package name
     if (existing[0].name !== name) {
       return res.status(400).json({ error: 'Package name cannot be changed' });
     }
 
-    // Update package (only version, architecture, filename)
     await pool.query(
       'UPDATE packages SET version = ?, architecture = ?, filename = ? WHERE id = ?',
       [version, architecture, filename, packageId]
@@ -193,7 +185,6 @@ app.put('/api/packages/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Add Package API - Admin only
 app.post('/api/packages', authenticateToken, async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Access denied: Admin only' });
@@ -201,7 +192,6 @@ app.post('/api/packages', authenticateToken, async (req, res) => {
 
   const { name, version, architecture, filename, dependencies } = req.body;
 
-  // Validate input
   if (!name || !version || !architecture || !filename) {
     return res.status(400).json({ error: 'All fields are required' });
   }
@@ -211,7 +201,6 @@ app.post('/api/packages', authenticateToken, async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    // Insert new package
     const [result] = await conn.query(
       'INSERT INTO packages (name, version, architecture, filename) VALUES (?, ?, ?, ?)',
       [name, version, architecture, filename]
@@ -219,7 +208,6 @@ app.post('/api/packages', authenticateToken, async (req, res) => {
 
     const packageId = result.insertId;
 
-    // Insert dependencies if provided
     if (dependencies && Array.isArray(dependencies) && dependencies.length > 0) {
       for (const dep of dependencies) {
         if (dep.name) {
@@ -250,7 +238,6 @@ app.post('/api/packages', authenticateToken, async (req, res) => {
   }
 });
 
-// Delete Package API - Admin only
 app.delete('/api/packages/:id', authenticateToken, async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Access denied: Admin only' });
@@ -259,16 +246,13 @@ app.delete('/api/packages/:id', authenticateToken, async (req, res) => {
   const packageId = req.params.id;
 
   try {
-    // Check if package exists
     const [existing] = await pool.query('SELECT id, name FROM packages WHERE id = ?', [packageId]);
     if (existing.length === 0) {
       return res.status(404).json({ error: 'Package not found' });
     }
 
-    // Delete dependencies first (foreign key constraint)
     await pool.query('DELETE FROM dependencies WHERE package_id = ?', [packageId]);
     
-    // Delete package
     await pool.query('DELETE FROM packages WHERE id = ?', [packageId]);
 
     res.json({ 
@@ -281,7 +265,6 @@ app.delete('/api/packages/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Dependencies API
 app.get('/api/dependencies', authenticateToken, async (req, res) => {
   const search = req.query.search?.trim() || '';
   const page = parseInt(req.query.page) || 1;
@@ -337,7 +320,6 @@ app.get('/api/dependencies', authenticateToken, async (req, res) => {
   }
 });
 
-// PackageDownloads API
 app.get('/api/packagedownloads', authenticateToken, async (req, res) => {
   const search = req.query.search?.trim() || '';
   const page = parseInt(req.query.page) || 1;
@@ -390,7 +372,6 @@ app.get('/api/packagedownloads', authenticateToken, async (req, res) => {
   }
 });
 
-// Log download endpoint
 app.post('/api/log-download', authenticateToken, async (req, res) => {
   const {
     user_id,
@@ -419,7 +400,6 @@ app.post('/api/log-download', authenticateToken, async (req, res) => {
   }
 });
 
-// Helper function to parse Packages file format
 function parsePackagesFile(content) {
   const packages = [];
   const dependencies = [];
@@ -470,9 +450,6 @@ function parsePackagesFile(content) {
   return { packages, dependencies };
 }
 
-// Update packages endpoint
-// Update packages endpoint
-// Update packages endpoint - WITH PROGRESS FEEDBACK
 app.post('/api/update-packages', authenticateToken, async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Access denied' });
@@ -482,7 +459,6 @@ app.post('/api/update-packages', authenticateToken, async (req, res) => {
     console.log('\n=== Package Update Started ===');
     console.log('Time:', new Date().toLocaleString());
     
-    // Ubuntu 24.04 (Noble) repositories
     const repos = [
       {
         name: 'Main Repository',
@@ -515,19 +491,19 @@ app.post('/api/update-packages', authenticateToken, async (req, res) => {
       
       const downloadTime = ((Date.now() - startTime) / 1000).toFixed(2);
       const sizeInMB = (response.data.length / 1024 / 1024).toFixed(2);
-      console.log(`\n✓ Downloaded successfully (${sizeInMB} MB in ${downloadTime}s)`);
+      console.log(`\n-> Downloaded successfully (${sizeInMB} MB in ${downloadTime}s)`);
       
       console.log('Decompressing...');
       const decompressStart = Date.now();
       const decompressed = zlib.gunzipSync(response.data).toString('utf-8');
       const decompressTime = ((Date.now() - decompressStart) / 1000).toFixed(2);
-      console.log(`✓ Decompressed in ${decompressTime}s`);
+      console.log(`-> Decompressed in ${decompressTime}s`);
       
       console.log('Parsing packages...');
       const parseStart = Date.now();
       const { packages, dependencies } = parsePackagesFile(decompressed);
       const parseTime = ((Date.now() - parseStart) / 1000).toFixed(2);
-      console.log(`✓ Parsed ${packages.length} packages with ${dependencies.length} dependencies in ${parseTime}s`);
+      console.log(`-> Parsed ${packages.length} packages with ${dependencies.length} dependencies in ${parseTime}s`);
       
       allPackages = allPackages.concat(packages);
       allDependencies = allDependencies.concat(dependencies);
@@ -546,7 +522,7 @@ app.post('/api/update-packages', authenticateToken, async (req, res) => {
       console.log('Clearing old data...');
       await conn.query('DELETE FROM dependencies');
       await conn.query('DELETE FROM packages');
-      console.log('✓ Old data cleared');
+      console.log('-> Old data cleared');
 
       console.log('Inserting packages...');
       const packageStartTime = Date.now();
@@ -561,14 +537,13 @@ app.post('/api/update-packages', authenticateToken, async (req, res) => {
         packageIdMap[pkg.name] = result.insertId;
         insertedPackages++;
         
-        // Progress every 1000 packages
         if (insertedPackages % 1000 === 0) {
           const progress = ((insertedPackages / allPackages.length) * 100).toFixed(1);
           process.stdout.write(`\rInserting packages: ${progress}% (${insertedPackages}/${allPackages.length})`);
         }
       }
       const packageTime = ((Date.now() - packageStartTime) / 1000).toFixed(2);
-      console.log(`\n✓ Inserted ${insertedPackages} packages in ${packageTime}s`);
+      console.log(`\n-> Inserted ${insertedPackages} packages in ${packageTime}s`);
 
       console.log('Inserting dependencies...');
       const depStartTime = Date.now();
@@ -583,7 +558,6 @@ app.post('/api/update-packages', authenticateToken, async (req, res) => {
           );
           insertedDeps++;
           
-          // Progress every 5000 dependencies
           if (insertedDeps % 5000 === 0) {
             const progress = ((insertedDeps / allDependencies.length) * 100).toFixed(1);
             process.stdout.write(`\rInserting dependencies: ${progress}% (${insertedDeps}/${allDependencies.length})`);
@@ -591,11 +565,11 @@ app.post('/api/update-packages', authenticateToken, async (req, res) => {
         }
       }
       const depTime = ((Date.now() - depStartTime) / 1000).toFixed(2);
-      console.log(`\n✓ Inserted ${insertedDeps} dependencies in ${depTime}s`);
+      console.log(`\n-> Inserted ${insertedDeps} dependencies in ${depTime}s`);
 
       console.log('Committing transaction...');
       await conn.commit();
-      console.log('✓ Transaction committed successfully');
+      console.log('-> Transaction committed successfully');
       
       const successMessage = `Updated ${allPackages.length} packages and ${allDependencies.length} dependencies from Ubuntu 24.04 (Noble)`;
       console.log('\n=== Update Completed Successfully ===');
@@ -618,11 +592,25 @@ app.post('/api/update-packages', authenticateToken, async (req, res) => {
   }
 });
 
-
-
 const PORT = process.env.PORT || 8000;
 const HOST = '0.0.0.0';
 
 app.listen(PORT, HOST, () => {
-  console.log(`Backend listening on ${HOST}:${PORT}`);
+  const os = require('os');
+  const interfaces = os.networkInterfaces();
+  
+  console.log('\n====================================');
+  console.log('Backend Server Started');
+  console.log('====================================');
+  console.log(`Local:            http://localhost:${PORT}`);
+  
+  Object.keys(interfaces).forEach(interfaceName => {
+    interfaces[interfaceName].forEach(interface => {
+      if (interface.family === 'IPv4' && !interface.internal) {
+        console.log(`Network:          http://${interface.address}:${PORT}`);
+      }
+    });
+  });
+  
+  console.log('====================================\n');
 });
